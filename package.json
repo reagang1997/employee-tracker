@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/reagang1997/employee-tracker#readme",
   "dependencies": {
+    "console.table": "^0.10.0",
     "express": "^4.17.1",
     "inquirer": "^7.3.3",
     "mysql": "^2.18.1"
