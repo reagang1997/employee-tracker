@@ -53,7 +53,58 @@ const main = () => {
                 //good
                 addDepo();
                 break;
+            case 'Update Employee Manager':
+                updateEmployeeManager();
+                break;
         }
+    })
+}
+
+const updateEmployeeManager = () => {
+    connection.query('select * from employee', (err, rows) => {
+        if (err) throw err;
+        let employees = []
+        rows.forEach(row => {
+            const {first_name, last_name} = row;
+            const fullName = first_name + " " + last_name;
+            employees.push(fullName);
+        });
+
+        inquirer.prompt([
+            {
+                type: 'list',
+                message: "Which employee needs a new manager?",
+                choices: employees,
+                name: 'empToChange'
+            },
+            {
+                type: 'list',
+                message: 'Who is the new manager?',
+                choices: employees,
+                name: 'newManager'
+            }
+        ]).then(res => {
+            let {empToChange, newManager} = res;
+            empToChange = empToChange.split(" ");
+            empToChange = empToChange[0];
+
+            newManagerFirst = newManager.split(" ");
+            newManagerFirst = newManagerFirst[0];
+            console.log(newManagerFirst);
+
+            connection.query('select id from employee where first_name = ?', [newManagerFirst], (err, res) => {
+                connection.query('update employee set manager_id = ? where first_name = ?', [res[0].id, empToChange], (err, res) => {
+                    console.log("Manager Updated");
+                })
+            })
+
+
+        })
+    })
+}
+const viewByManager = () => {
+    connection.query('select * from employee where manager_id >= 1', (err, rows) => {
+        console.log
     })
 }
 
@@ -96,7 +147,6 @@ const addEmp = () => {
                 let { name } = row;
                 departments.push(name);
             });
-
             inquirer.prompt([
                 {
                     type: 'input',
