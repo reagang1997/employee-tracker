@@ -56,8 +56,56 @@ const main = () => {
             case 'Update Employee Manager':
                 updateEmployeeManager();
                 break;
+            case 'Update Employee Role':
+                updateEmpRole();
+                break;
         }
     })
+}
+
+const updateEmpRole = () => {
+    connection.query('select * from employee', (err, rows) => {
+        if (err) throw err;
+        let employees = []
+        rows.forEach(row => {
+            const { first_name, last_name } = row;
+            const fullName = first_name + " " + last_name;
+            employees.push(fullName);
+        });
+
+        let roles = [];
+        connection.query('select title from role', (err, rows) => {
+            rows.forEach(row => {
+                roles.push(row.title);
+            });
+            inquirer.prompt([
+                {
+                    type: 'list',
+                    message: "Which employee needs a new Role?",
+                    choices: employees,
+                    name: 'empToChange'
+                },
+                {
+                    type: 'list',
+                    message: 'What is the new role?',
+                    choices: roles,
+                    name: 'newRole'
+                }
+            ]).then(res => {
+                let { empToChange, newRole } = res;
+                empToChange = empToChange.split(" ");
+                empToChange = empToChange[0];
+                connection.query('update employee set role_id = ? where first_name = ?', [(roles.indexOf(newRole) + 1), empToChange], (err, res) => {
+                    if(err) throw err;
+                    console.log('Role Updated!');
+                    main();
+                })
+            })
+        })
+
+
+
+    });
 }
 
 const updateEmployeeManager = () => {
@@ -65,7 +113,7 @@ const updateEmployeeManager = () => {
         if (err) throw err;
         let employees = []
         rows.forEach(row => {
-            const {first_name, last_name} = row;
+            const { first_name, last_name } = row;
             const fullName = first_name + " " + last_name;
             employees.push(fullName);
         });
@@ -84,7 +132,7 @@ const updateEmployeeManager = () => {
                 name: 'newManager'
             }
         ]).then(res => {
-            let {empToChange, newManager} = res;
+            let { empToChange, newManager } = res;
             empToChange = empToChange.split(" ");
             empToChange = empToChange[0];
 
@@ -95,6 +143,7 @@ const updateEmployeeManager = () => {
             connection.query('select id from employee where first_name = ?', [newManagerFirst], (err, res) => {
                 connection.query('update employee set manager_id = ? where first_name = ?', [res[0].id, empToChange], (err, res) => {
                     console.log("Manager Updated");
+                    main();
                 })
             })
 
@@ -270,7 +319,7 @@ const viewByDepo = () => {
             connection.query(`SELECT employee.id, employee.first_name, employee.last_name, role.title, department.name, role.salary, employee.manager_id
     FROM ((employee
         INNER JOIN role on employee.role_id = role.id)
-        INNER JOIN department on role.department_id = department.id) where department.name = ?`,[depo], (err, rows) => {
+        INNER JOIN department on role.department_id = department.id) where department.name = ?`, [depo], (err, rows) => {
                 if (err) throw err;
                 console.table(rows);
                 main();
