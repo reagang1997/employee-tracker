@@ -1,6 +1,8 @@
 const ctable = require('console.table')
 const mysql = require('mysql');
 const inquirer = require('inquirer');
+const { connect } = require('http2');
+const { join } = require('path');
 
 
 // Set the port of our application
@@ -24,7 +26,7 @@ const main = () => {
                 type: 'list',
                 message: 'What would you like to do?',
                 choices: ['View All Employees', 'View All Employees By Department', 'View All Employees By Manager', 'Add Employee', 'Remove Employee', 'Update Employee Role',
-                    'Update Employee Manager', 'View All Roles', 'Add Role', 'Remove Role'],
+                    'Update Employee Manager', 'Add Department', 'View All Roles', 'Add Role', 'Remove Role'],
                 name: 'choice'
             }
         ]
@@ -32,15 +34,117 @@ const main = () => {
         const { choice } = res;
         switch (choice) {
             case 'View All Employees':
+                //good
                 getAllEmployees();
                 break;
             case 'View All Employees By Department':
+                //good
                 viewByDepo();
                 break;
             case 'Add Role':
+                //good
                 addRole();
                 break;
+            case 'Add Employee':
+                //good
+                addEmp();
+                break;
+            case 'Add Department':
+                //good
+                addDepo();
+                break;
         }
+    })
+}
+
+const addDepo = () => {
+    inquirer.prompt([
+        {
+            type: 'input',
+            message: 'What is the departments name?',
+            name: 'newDepo'
+        }
+    ]).then(res => {
+        const { newDepo } = res;
+        connection.query('insert into department (name) values (?)', [newDepo], (err, res) => {
+            console.log("Added new Department!");
+            main();
+        })
+    })
+}
+
+const addEmp = () => {
+    connection.query('select title, first_name, last_name from role full join employee', (err, rows) => {
+        let employess = [];
+        let roles = [];
+        rows.forEach(row => {
+            let { title, first_name, last_name } = row;
+            let full_name = first_name + " " + last_name;
+            if (employess.indexOf(full_name) === -1) {
+                employess.push(full_name);
+            }
+
+            if (roles.indexOf(title) === -1) {
+                roles.push(title);
+            }
+        });
+        employess.push('None');
+
+        let departments = []
+        connection('select name from department', (err, rows) => {
+            rows.forEach(row => {
+                let { name } = row;
+                departments.push(name);
+            });
+
+            inquirer.prompt([
+                {
+                    type: 'input',
+                    message: 'What is the employess first name?',
+                    name: 'first_name'
+                },
+                {
+                    type: 'input',
+                    message: 'What is the employees last name?',
+                    name: 'last_name'
+                },
+                {
+                    type: 'list',
+                    message: 'What role does the employee belong to?',
+                    choices: roles,
+                    name: 'role'
+                },
+                {
+                    type: 'list',
+                    message: 'Who does the employee report to?',
+                    choices: employess,
+                    name: 'boss'
+                }
+            ]).then(res => {
+                const { first_name, last_name, role, boss } = res;
+                const newEmployee = {
+                    first_name: first_name,
+                    last_name: last_name
+                };
+
+                connection.query('select id from role where title = ?', [role], (err, res) => {
+                    newEmployee.role_id = res[0].id;
+
+                    let bossFirstName = boss.split(" ");
+                    bossFirstName = bossFirstName[0];
+                    connection.query('select id from employee where first_name = ?', [bossFirstName], (err, res) => {
+                        if (err) throw err;
+                        newEmployee.manager_id = res[0].id;
+
+                        connection.query('insert into employee set ?', [newEmployee], (err, row) => {
+                            if (err) throw err;
+                            main();
+                        })
+                    })
+                })
+            })
+        })
+
     })
 }
 
@@ -99,6 +203,7 @@ const viewByDepo = () => {
         const depos = [];
         rows.forEach(row => {
             depos.push(row.name);
+            console.log(depos);
         });
 
         inquirer.prompt(
@@ -112,7 +217,14 @@ const viewByDepo = () => {
             ]
         ).then(res => {
             const { depo } = res;
-            console.log(depo)
+            connection.query(`SELECT employee.id, employee.first_name, employee.last_name, role.title, department.name, role.salary, employee.manager_id
+    FROM ((employee
+        INNER JOIN role on employee.role_id = role.id)
+        INNER JOIN department on role.department_id = department.id) where department.name = ?`,[depo], (err, rows) => {
+                if (err) throw err;
+                console.table(rows);
+                main();
+            })
         })
     })
 }
