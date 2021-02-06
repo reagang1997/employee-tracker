@@ -25,8 +25,8 @@ const main = () => {
             {
                 type: 'list',
                 message: 'What would you like to do?',
-                choices: ['View All Employees', 'View All Employees By Department', 'View All Employees By Manager', 'Add Employee', 'Remove Employee', 'Update Employee Role',
-                    'Update Employee Manager', 'Add Department', 'View All Roles', 'Add Role', 'Remove Role'],
+                choices: ['View All Employees', 'View All Employees By Department', 'Add Employee', 'Remove Employee', 'Update Employee Role',
+                    'Update Employee Manager', 'Add Department', 'View All Roles', 'Add Role', 'Remove Employee'],
                 name: 'choice'
             }
         ]
@@ -54,13 +54,59 @@ const main = () => {
                 addDepo();
                 break;
             case 'Update Employee Manager':
+                //good
                 updateEmployeeManager();
                 break;
             case 'Update Employee Role':
+                //good
                 updateEmpRole();
+                break;
+            case 'View All Roles':
+                viewAllRoles();
+                break;
+            case 'Remove Employee':
+                removeEmployee();
                 break;
         }
     })
+}
+
+const removeEmployee = () => {
+    connection.query('select * from employee', (err, rows) => {
+        if (err) throw err;
+        const employess = [];
+        rows.forEach(row => {
+            let { first_name, last_name } = row;
+            let fullName = first_name + " " + last_name;
+            employess.push(fullName);
+        });
+
+        inquirer.prompt([
+            {
+                type: 'list',
+                message: 'What employee would you like to delete?',
+                choices: employess,
+                name: 'emp'
+            }
+        ]).then(res => {
+            let { emp } = res;
+            emp = emp.split(" ");
+
+            connection.query('delete from employee where first_name = ?', [emp[0]], (err, res) => {
+                if (err) throw err;
+                console.log('Employee Deleted!');
+                main();
+            })
+        })
+    })
+}
+
+const viewAllRoles = () => {
+    connection.query('select * from role', (err, rows) => {
+        if (err) throw err;
+        console.table(rows);
+        main();
+    });
 }
 
 const updateEmpRole = () => {
@@ -74,7 +120,9 @@ const updateEmpRole = () => {
         });
 
         let roles = [];
-        connection.query('select title from role', (err, rows) => {
+        connection.query('select * from role', (err, rows) => {
+            const rolesRes = rows; 
+
             rows.forEach(row => {
                 roles.push(row.title);
             });
@@ -92,11 +140,17 @@ const updateEmpRole = () => {
                     name: 'newRole'
                 }
             ]).then(res => {
+                let id;
                 let { empToChange, newRole } = res;
                 empToChange = empToChange.split(" ");
                 empToChange = empToChange[0];
-                connection.query('update employee set role_id = ? where first_name = ?', [(roles.indexOf(newRole) + 1), empToChange], (err, res) => {
-                    if(err) throw err;
+                for (let i = 0; i < rolesRes.length; i++) {
+                    if (rolesRes[i].title === newRole) {
+                        id = rolesRes[i].id;
+                    }
+                }
+                connection.query('update employee set role_id = ? where first_name = ?', [id, empToChange], (err, res) => {
+                    if (err) throw err;
                     console.log('Role Updated!');
                     main();
                 })
@@ -138,7 +192,6 @@ const updateEmployeeManager = () => {
 
             newManagerFirst = newManager.split(" ");
             newManagerFirst = newManagerFirst[0];
-            console.log(newManagerFirst);
 
             connection.query('select id from employee where first_name = ?', [newManagerFirst], (err, res) => {
                 connection.query('update employee set manager_id = ? where first_name = ?', [res[0].id, empToChange], (err, res) => {
@@ -153,7 +206,6 @@ const updateEmployeeManager = () => {
 }
 const viewByManager = () => {
     connection.query('select * from employee where manager_id >= 1', (err, rows) => {
-        console.log
     })
 }
 
@@ -191,7 +243,7 @@ const addEmp = () => {
         employess.push('None');
 
         let departments = []
-        connection('select name from department', (err, rows) => {
+        connection.query('select name from department', (err, rows) => {
             rows.forEach(row => {
                 let { name } = row;
                 departments.push(name);
@@ -231,15 +283,25 @@ const addEmp = () => {
 
                     let bossFirstName = boss.split(" ");
                     bossFirstName = bossFirstName[0];
-                    connection.query('select id from employee where first_name = ?', [bossFirstName], (err, res) => {
-                        if (err) throw err;
-                        newEmployee.manager_id = res[0].id;
+                    console.log(bossFirstName);
+                    if (bossFirstName != 'None') {
+                        connection.query('select id from employee where first_name = ?', [bossFirstName], (err, res) => {
+                            if (err) throw err;
+                            newEmployee.manager_id = res[0].id;
 
+                            connection.query('insert into employee set ?', [newEmployee], (err, row) => {
+                                if (err) throw err;
+                                main();
+                            })
+                        })
+                    }
+                    else {
                         connection.query('insert into employee set ?', [newEmployee], (err, row) => {
                             if (err) throw err;
                             main();
                         })
-                    })
+                    }
+
                 })
             })
         })
@@ -273,7 +335,6 @@ const addRole = () => {
             const { roleName, roleSalary, depo } = res1;
             connection.query('select id from department where name = ?', [depo], (err, row) => {
                 if (err) throw err;
-                console.log(row[0].id);
                 connection.query('insert into role (title, salary, department_id) values (?,?,?)', [roleName, roleSalary, row[0].id], (err, res) => {
                     if (err) throw err;
                     console.log("new role added");
@@ -302,7 +363,6 @@ const viewByDepo = () => {
         const depos = [];
         rows.forEach(row => {
             depos.push(row.name);
-            console.log(depos);
         });
 
         inquirer.prompt(
